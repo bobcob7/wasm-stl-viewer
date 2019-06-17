@@ -1,17 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
+	"math"
 	"strings"
 	"syscall/js"
 
 	"github.com/bobcob7/wasm-stl-viewer/gltypes"
+	"github.com/bobcob7/wasm-stl-viewer/models"
 	"github.com/bobcob7/wasm-stl-viewer/renderer"
-	"gitlab.com/russoj88/stl/stl"
 )
 
 var (
@@ -75,7 +74,7 @@ func uploading(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-func parseBase64File(input string) (output io.Reader, err error) {
+func parseBase64File(input string) (output []byte, err error) {
 	searchString := "base64,"
 	index := strings.Index(input, searchString)
 	if index < 0 {
@@ -83,8 +82,7 @@ func parseBase64File(input string) (output io.Reader, err error) {
 		return
 	}
 	sBuffer := input[index+len(searchString):]
-	buffer, err := base64.StdEncoding.DecodeString(sBuffer)
-	return bytes.NewReader(buffer), nil
+	return base64.StdEncoding.DecodeString(sBuffer)
 }
 
 func uploaded(this js.Value, args []js.Value) interface{} {
@@ -94,12 +92,32 @@ func uploaded(this js.Value, args []js.Value) interface{} {
 	if err != nil {
 		panic(err)
 	}
-	stlSolid, err := stl.From(uploadedFile)
+	stlSolid, err := models.NewSTL(uploadedFile)
 	if err != nil {
-		panic(err)
+		js.Global().Call("alert", "Could not parse file")
 	}
-	fmt.Printf("Parsed in %d Triangles\n", stlSolid.TriangleCount)
+	vert, colors, indices := stlSolid.GetModel()
+	modelSize := getMaxScalar(vert)
+	currentZoom = modelSize * 3
+	render.SetZoom(currentZoom)
+	render.SetModel(colors, vert, indices)
 	return nil
+}
+
+func getMaxScalar(vertices []float32) float32 {
+	var max float32
+	for baseIndex := 0; baseIndex < len(vertices); baseIndex += 3 {
+		testScale := scalar(vertices[baseIndex], vertices[baseIndex], vertices[baseIndex])
+		if testScale > max {
+			max = testScale
+		}
+	}
+	return max
+}
+
+func scalar(x float32, y float32, z float32) float32 {
+	xy := math.Sqrt(float64(x*x + y*y))
+	return float32(math.Sqrt(xy*xy + float64(z*z)))
 }
 
 func uploadError(this js.Value, args []js.Value) interface{} {
@@ -117,6 +135,7 @@ var speedSliderXValue js.Value
 var speedSliderYValue js.Value
 var speedSliderZValue js.Value
 var canvasElement js.Value
+var currentZoom float32 = 3
 
 func main() {
 
@@ -149,6 +168,9 @@ func main() {
 	speedSliderZ := doc.Call("getElementById", "speedSliderZ")
 	speedSliderZ.Call("addEventListener", "input", sliderSpeedZCallback)
 	speedSliderZValue = doc.Call("getElementById", "speedSliderZValue")
+
+	zoomChangeCallback := js.FuncOf(zoomChange)
+	js.Global().Get("window").Call("addEventListener", "wheel", zoomChangeCallback)
 
 	uploadCallback := js.FuncOf(uploading)
 	uploadedCallback := js.FuncOf(uploaded)
@@ -186,15 +208,16 @@ func main() {
 		VertexShaderCode:   vertShaderCode,
 	}
 	render = renderer.NewRenderer(gl, config)
+	render.SetZoom(currentZoom)
 	defer render.Release()
 
 	x, y, z := render.GetSpeed()
 	speedSliderX.Set("value", fmt.Sprint(x))
-	speedSliderXValue.Set("value", fmt.Sprint(x))
+	speedSliderXValue.Set("innerHTML", fmt.Sprint(x))
 	speedSliderY.Set("value", fmt.Sprint(y))
-	speedSliderYValue.Set("value", fmt.Sprint(y))
+	speedSliderYValue.Set("innerHTML", fmt.Sprint(y))
 	speedSliderZ.Set("value", fmt.Sprint(z))
-	speedSliderZValue.Set("value", fmt.Sprint(z))
+	speedSliderZValue.Set("innerHTML", fmt.Sprint(z))
 
 	var renderFrame js.Func
 	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -222,7 +245,7 @@ func sliderChangeX(this js.Value, args []js.Value) interface{} {
 	sSpeed := this.Get("value").String()
 	fmt.Sscan(sSpeed, &speed)
 	render.SetSpeedX(speed)
-	speedSliderXValue.Set("value", sSpeed)
+	speedSliderXValue.Set("innerHTML", sSpeed)
 	return nil
 }
 
@@ -231,7 +254,7 @@ func sliderChangeY(this js.Value, args []js.Value) interface{} {
 	sSpeed := this.Get("value").String()
 	fmt.Sscan(sSpeed, &speed)
 	render.SetSpeedY(speed)
-	speedSliderYValue.Set("value", sSpeed)
+	speedSliderYValue.Set("innerHTML", sSpeed)
 	return nil
 }
 
@@ -240,6 +263,14 @@ func sliderChangeZ(this js.Value, args []js.Value) interface{} {
 	sSpeed := this.Get("value").String()
 	fmt.Sscan(sSpeed, &speed)
 	render.SetSpeedZ(speed)
-	speedSliderZValue.Set("value", sSpeed)
+	speedSliderZValue.Set("innerHTML", sSpeed)
+	return nil
+}
+
+func zoomChange(this js.Value, args []js.Value) interface{} {
+	deltaY := args[0].Get("deltaY").Float()
+	deltaScale := 1 - (float32(deltaY) * 0.001)
+	currentZoom *= deltaScale
+	render.SetZoom(currentZoom)
 	return nil
 }

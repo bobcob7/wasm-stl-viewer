@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	indexData, err := ioutil.ReadFile("static/index.html")
+	indexData, err := ioutil.ReadFile("index.html")
 	if err != nil {
 		log.Fatalf("Could not read index file: %s\n", err)
 	}

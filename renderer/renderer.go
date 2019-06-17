@@ -56,7 +56,6 @@ func NewRenderer(gl js.Value, config InitialConfig) (r Renderer) {
 	r.movMatrix = mgl32.Ident4()
 	r.width = config.Width
 	r.height = config.Height
-	fmt.Println("Size", r.width, r.height)
 
 	r.speedX = config.SpeedX
 	r.speedY = config.SpeedY
@@ -75,7 +74,17 @@ func NewRenderer(gl js.Value, config InitialConfig) (r Renderer) {
 	r.setContextFlags()
 
 	r.createMatrixes()
+	r.EnableObject()
 	return
+}
+
+func (r *Renderer) SetModel(Colors []float32, Vertices []float32, Indices []uint16) {
+	//TODO
+	r.numIndices = len(Indices)
+	r.UpdateColorBuffer(Colors)
+	r.UpdateVerticesBuffer(Vertices)
+	r.UpdateIndicesBuffer(Indices)
+	r.EnableObject()
 }
 
 func (r *Renderer) Release() {
@@ -113,7 +122,7 @@ func (r *Renderer) createMatrixes() {
 	ratio := float32(r.width) / float32(r.height)
 	fmt.Println("Renderer.createMatrixes")
 	// Generate and apply projection matrix
-	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), ratio, 1, 100.0)
+	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), ratio, 1, 100000.0)
 	var projMatrixBuffer *[16]float32
 	projMatrixBuffer = (*[16]float32)(unsafe.Pointer(&projMatrix))
 	typedProjMatrixBuffer := js.TypedArrayOf([]float32((*projMatrixBuffer)[:]))
@@ -130,7 +139,7 @@ func (r *Renderer) createMatrixes() {
 func (r *Renderer) setContextFlags() {
 	fmt.Println("Renderer.setContextFlags")
 	// Set WebGL properties
-	r.glContext.Call("clearColor", 0.5, 0.5, 0.5, 0.9)    // Color the screen is cleared to
+	r.glContext.Call("clearColor", 0.0, 0.0, 0.0, 1.0)    // Color the screen is cleared to
 	r.glContext.Call("clearDepth", 1.0)                   // Z value that is set to the Depth buffer every frame
 	r.glContext.Call("viewport", 0, 0, r.width, r.height) // Viewport size
 	r.glContext.Call("depthFunc", r.glTypes.LEqual)
@@ -186,13 +195,10 @@ func (r *Renderer) attachShaderProgram() {
 func (r *Renderer) UpdateColorBuffer(buffer []float32) {
 	fmt.Println("Renderer.UpdateColorBuffer")
 	r.colors = js.TypedArrayOf(buffer)
-	if r.colorBuffer != js.Undefined() {
-		// Delete previous color buffer
-		fmt.Println("Deleting color buffer first")
-		r.glContext.Call("deleteBuffer", r.colorBuffer)
-	}
 	// Create color buffer
-	r.colorBuffer = r.glContext.Call("createBuffer")
+	if r.colorBuffer == js.Undefined() {
+		r.colorBuffer = r.glContext.Call("createBuffer")
+	}
 	r.glContext.Call("bindBuffer", r.glTypes.ArrayBuffer, r.colorBuffer)
 	r.glContext.Call("bufferData", r.glTypes.ArrayBuffer, r.colors, r.glTypes.StaticDraw)
 }
@@ -200,13 +206,10 @@ func (r *Renderer) UpdateColorBuffer(buffer []float32) {
 func (r *Renderer) UpdateVerticesBuffer(buffer []float32) {
 	fmt.Println("Renderer.UpdateVerticesBuffer")
 	r.vertices = js.TypedArrayOf(buffer)
-	if r.vertexBuffer != js.Undefined() {
-		// Delete previous vertex buffer
-		fmt.Println("Deleting vertex buffer first")
-		r.glContext.Call("deleteBuffer", r.vertexBuffer)
-	}
 	// Create vertex buffer
-	r.vertexBuffer = r.glContext.Call("createBuffer")
+	if r.vertexBuffer == js.Undefined() {
+		r.vertexBuffer = r.glContext.Call("createBuffer")
+	}
 	r.glContext.Call("bindBuffer", r.glTypes.ArrayBuffer, r.vertexBuffer)
 	r.glContext.Call("bufferData", r.glTypes.ArrayBuffer, r.vertices, r.glTypes.StaticDraw)
 }
@@ -214,13 +217,10 @@ func (r *Renderer) UpdateVerticesBuffer(buffer []float32) {
 func (r *Renderer) UpdateIndicesBuffer(buffer []uint16) {
 	fmt.Println("Renderer.UpdateIndicesBuffer")
 	r.indices = js.TypedArrayOf(buffer)
-	if r.indexBuffer != js.Undefined() {
-		// Delete previous index buffer
-		fmt.Println("Deleting index buffer first")
-		r.glContext.Call("deleteBuffer", r.indexBuffer)
-	}
 	// Create index buffer
-	r.indexBuffer = r.glContext.Call("createBuffer")
+	if r.indexBuffer == js.Undefined() {
+		r.indexBuffer = r.glContext.Call("createBuffer")
+	}
 	r.glContext.Call("bindBuffer", r.glTypes.ElementArrayBuffer, r.indexBuffer)
 	r.glContext.Call("bufferData", r.glTypes.ElementArrayBuffer, r.indices, r.glTypes.StaticDraw)
 }
@@ -254,4 +254,13 @@ func (r *Renderer) Render(this js.Value, args []js.Value) interface{} {
 	r.glContext.Call("drawElements", r.glTypes.Triangles, r.numIndices, r.glTypes.UnsignedShort, 0)
 
 	return nil
+}
+
+func (r *Renderer) SetZoom(currentZoom float32) {
+	fmt.Println("Renderer.SetZoom")
+	viewMatrix := mgl32.LookAtV(mgl32.Vec3{currentZoom, currentZoom, currentZoom}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
+	var viewMatrixBuffer *[16]float32
+	viewMatrixBuffer = (*[16]float32)(unsafe.Pointer(&viewMatrix))
+	typedViewMatrixBuffer := js.TypedArrayOf([]float32((*viewMatrixBuffer)[:]))
+	r.glContext.Call("uniformMatrix4fv", r.ViewMatrix, false, typedViewMatrixBuffer)
 }
