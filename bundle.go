@@ -36,7 +36,7 @@ var colorsNative = []float32{
 	1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0,
 	0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
 }
-var indicesNative = []uint16{
+var indicesNative = []uint32{
 	0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7,
 	8, 9, 10, 8, 10, 11, 12, 13, 14, 12, 14, 15,
 	16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
@@ -64,6 +64,12 @@ void main(void) {
 `
 
 var reader js.Value
+var render renderer.Renderer
+var speedSliderXValue js.Value
+var speedSliderYValue js.Value
+var speedSliderZValue js.Value
+var canvasElement js.Value
+var currentZoom float32 = 3
 
 func uploading(this js.Value, args []js.Value) interface{} {
 	files := this.Get("files")
@@ -88,19 +94,27 @@ func parseBase64File(input string) (output []byte, err error) {
 func uploaded(this js.Value, args []js.Value) interface{} {
 	fmt.Println("Finished uploading")
 	result := args[0].Get("target").Get("result").String()
-	uploadedFile, err := parseBase64File(result)
-	if err != nil {
-		panic(err)
-	}
-	stlSolid, err := models.NewSTL(uploadedFile)
-	if err != nil {
-		js.Global().Call("alert", "Could not parse file")
-	}
-	vert, colors, indices := stlSolid.GetModel()
-	modelSize := getMaxScalar(vert)
-	currentZoom = modelSize * 3
-	render.SetZoom(currentZoom)
-	render.SetModel(colors, vert, indices)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in upload", r)
+				js.Global().Call("alert", "Failed to parse file")
+			}
+		}()
+		uploadedFile, err := parseBase64File(result)
+		if err != nil {
+			panic(err)
+		}
+		stlSolid, err := models.NewSTL(uploadedFile)
+		if err != nil {
+			js.Global().Call("alert", "Could not parse file")
+		}
+		vert, colors, indices := stlSolid.GetModel()
+		modelSize := getMaxScalar(vert)
+		currentZoom = modelSize * 3
+		render.SetZoom(currentZoom)
+		render.SetModel(colors, vert, indices)
+	}()
 	return nil
 }
 
@@ -130,14 +144,8 @@ func uploadAborted(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-var render renderer.Renderer
-var speedSliderXValue js.Value
-var speedSliderYValue js.Value
-var speedSliderZValue js.Value
-var canvasElement js.Value
-var currentZoom float32 = 3
-
 func main() {
+	fmt.Println("Returned normally from f.")
 
 	// Init Canvas stuff
 	doc := js.Global().Get("document")
@@ -189,7 +197,6 @@ func main() {
 	if gl == js.Undefined() {
 		gl = canvasElement.Call("getContext", "experimental-webgl")
 	}
-	// once again
 	if gl == js.Undefined() {
 		js.Global().Call("alert", "browser might not support webgl")
 		return
@@ -207,7 +214,12 @@ func main() {
 		FragmentShaderCode: fragShaderCode,
 		VertexShaderCode:   vertShaderCode,
 	}
-	render = renderer.NewRenderer(gl, config)
+	var err error
+	render, err = renderer.NewRenderer(gl, config)
+	if err != nil {
+		js.Global().Call("alert", fmt.Sprintf("Cannot load webgl %v", err))
+		return
+	}
 	render.SetZoom(currentZoom)
 	defer render.Release()
 

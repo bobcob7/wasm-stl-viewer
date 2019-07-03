@@ -17,7 +17,7 @@ type InitialConfig struct {
 	SpeedZ             float32
 	Colors             []float32
 	Vertices           []float32
-	Indices            []uint16
+	Indices            []uint32
 	FragmentShaderCode string
 	VertexShaderCode   string
 }
@@ -36,7 +36,9 @@ type Renderer struct {
 	vertShader     js.Value
 	shaderProgram  js.Value
 	tmark          float32
-	rotation       float32
+	rotationX      float32
+	rotationY      float32
+	rotationZ      float32
 	movMatrix      mgl32.Mat4
 	PositionMatrix js.Value
 	ViewMatrix     js.Value
@@ -48,10 +50,10 @@ type Renderer struct {
 	speedZ         float32
 }
 
-func NewRenderer(gl js.Value, config InitialConfig) (r Renderer) {
+func NewRenderer(gl js.Value, config InitialConfig) (r Renderer, err error) {
 	// Get some WebGL bindings
 	r.glContext = gl
-	r.glTypes.New(r.glContext)
+	err = r.glTypes.New(r.glContext)
 	r.numIndices = len(config.Indices)
 	r.movMatrix = mgl32.Ident4()
 	r.width = config.Width
@@ -78,11 +80,14 @@ func NewRenderer(gl js.Value, config InitialConfig) (r Renderer) {
 	return
 }
 
-func (r *Renderer) SetModel(Colors []float32, Vertices []float32, Indices []uint16) {
-	//TODO
+func (r *Renderer) SetModel(Colors []float32, Vertices []float32, Indices []uint32) {
+	fmt.Println("Renderer.SetModel")
 	r.numIndices = len(Indices)
+	fmt.Println("Number of Indices:", len(Indices))
 	r.UpdateColorBuffer(Colors)
+	fmt.Println("Number of Colors:", len(Colors))
 	r.UpdateVerticesBuffer(Vertices)
+	fmt.Println("Number of Vertices:", len(Vertices))
 	r.UpdateIndicesBuffer(Indices)
 	r.EnableObject()
 }
@@ -214,7 +219,7 @@ func (r *Renderer) UpdateVerticesBuffer(buffer []float32) {
 	r.glContext.Call("bufferData", r.glTypes.ArrayBuffer, r.vertices, r.glTypes.StaticDraw)
 }
 
-func (r *Renderer) UpdateIndicesBuffer(buffer []uint16) {
+func (r *Renderer) UpdateIndicesBuffer(buffer []uint32) {
 	fmt.Println("Renderer.UpdateIndicesBuffer")
 	r.indices = js.TypedArrayOf(buffer)
 	// Create index buffer
@@ -230,12 +235,14 @@ func (r *Renderer) Render(this js.Value, args []js.Value) interface{} {
 	now := float32(args[0].Float())
 	tdiff := now - r.tmark
 	r.tmark = now
-	r.rotation = r.rotation + float32(tdiff)/500
+	r.rotationX = r.rotationX + r.speedX*float32(tdiff)/500
+	r.rotationY = r.rotationY + r.speedY*float32(tdiff)/500
+	r.rotationZ = r.rotationZ + r.speedZ*float32(tdiff)/500
 
 	// Do new model matrix calculations
-	r.movMatrix = mgl32.HomogRotate3DX(r.speedX * r.rotation)
-	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DY(r.speedY * r.rotation))
-	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DZ(r.speedZ * r.rotation))
+	r.movMatrix = mgl32.HomogRotate3DX(r.rotationX)
+	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DY(r.rotationY))
+	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DZ(r.rotationZ))
 
 	// Convert model matrix to a JS TypedArray
 	var modelMatrixBuffer *[16]float32
@@ -251,7 +258,7 @@ func (r *Renderer) Render(this js.Value, args []js.Value) interface{} {
 	r.glContext.Call("clear", r.glTypes.DepthBufferBit)
 
 	// Draw the cube
-	r.glContext.Call("drawElements", r.glTypes.Triangles, r.numIndices, r.glTypes.UnsignedShort, 0)
+	r.glContext.Call("drawElements", r.glTypes.Triangles, r.numIndices, r.glTypes.UnsignedInt, 0)
 
 	return nil
 }

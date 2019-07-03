@@ -20,7 +20,7 @@ func NewSTL(buffer []byte) (output STL, err error) {
 	// Generate random color gradient
 	numColors := (rand.Int() % 5) + 2
 	colors := color.GenerateGradient(numColors, int(solid.TriangleCount))
-	var index uint16 = 0
+	var index uint32 = 0
 	// Make Vertice array
 	for i, triangle := range solid.Triangles {
 
@@ -58,9 +58,9 @@ func NewSTL(buffer []byte) (output STL, err error) {
 type STL struct {
 	vertices []float32
 	colors   []float32
-	indices  []uint16
+	indices  []uint32
 }
 
-func (s STL) GetModel() ([]float32, []float32, []uint16) {
+func (s STL) GetModel() ([]float32, []float32, []uint32) {
 	return s.vertices, s.colors, s.indices
 }
