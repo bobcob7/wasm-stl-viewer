@@ -1,6 +1,9 @@
 package gltypes
 
-import "syscall/js"
+import (
+	"errors"
+	"syscall/js"
+)
 
 // GLTypes provides WebGL bindings.
 type GLTypes struct {
@@ -15,12 +18,13 @@ type GLTypes struct {
 	DepthBufferBit     js.Value
 	Triangles          js.Value
 	UnsignedShort      js.Value
+	UnsignedInt        js.Value
 	LEqual             js.Value
 	LineLoop           js.Value
 }
 
 // New grabs the WebGL bindings from a GL context.
-func (types *GLTypes) New(gl js.Value) {
+func (types *GLTypes) New(gl js.Value) error {
 	types.StaticDraw = gl.Get("STATIC_DRAW")
 	types.ArrayBuffer = gl.Get("ARRAY_BUFFER")
 	types.ElementArrayBuffer = gl.Get("ELEMENT_ARRAY_BUFFER")
@@ -34,4 +38,10 @@ func (types *GLTypes) New(gl js.Value) {
 	types.LEqual = gl.Get("LEQUAL")
 	types.DepthBufferBit = gl.Get("DEPTH_BUFFER_BIT")
 	types.LineLoop = gl.Get("LINE_LOOP")
+	enabled := gl.Call("getExtension", "OES_element_index_uint")
+	if !enabled.Truthy() {
+		return errors.New("missing extension: OES_element_index_uint")
+	}
+	types.UnsignedInt = gl.Get("UNSIGNED_INT")
+	return nil
 }
