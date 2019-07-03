@@ -88,19 +88,27 @@ func parseBase64File(input string) (output []byte, err error) {
 func uploaded(this js.Value, args []js.Value) interface{} {
 	fmt.Println("Finished uploading")
 	result := args[0].Get("target").Get("result").String()
-	uploadedFile, err := parseBase64File(result)
-	if err != nil {
-		panic(err)
-	}
-	stlSolid, err := models.NewSTL(uploadedFile)
-	if err != nil {
-		js.Global().Call("alert", "Could not parse file")
-	}
-	vert, colors, indices := stlSolid.GetModel()
-	modelSize := getMaxScalar(vert)
-	currentZoom = modelSize * 3
-	render.SetZoom(currentZoom)
-	render.SetModel(colors, vert, indices)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in upload", r)
+				js.Global().Call("alert", "Failed to parse file")
+			}
+		}()
+		uploadedFile, err := parseBase64File(result)
+		if err != nil {
+			panic(err)
+		}
+		stlSolid, err := models.NewSTL(uploadedFile)
+		if err != nil {
+			js.Global().Call("alert", "Could not parse file")
+		}
+		vert, colors, indices := stlSolid.GetModel()
+		modelSize := getMaxScalar(vert)
+		currentZoom = modelSize * 3
+		render.SetZoom(currentZoom)
+		render.SetModel(colors, vert, indices)
+	}()
 	return nil
 }
 
@@ -138,6 +146,7 @@ var canvasElement js.Value
 var currentZoom float32 = 3
 
 func main() {
+	fmt.Println("Returned normally from f.")
 
 	// Init Canvas stuff
 	doc := js.Global().Get("document")

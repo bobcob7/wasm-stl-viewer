@@ -1,4 +1,4 @@
-all: wasm-rotating-cube
+all: wasm-stl-viewer
 
 wasm-stl-viewer: bundle.wasm main.go
 	go build -o wasm-stl-viewer main.go
