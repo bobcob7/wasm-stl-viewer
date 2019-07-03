@@ -36,7 +36,9 @@ type Renderer struct {
 	vertShader     js.Value
 	shaderProgram  js.Value
 	tmark          float32
-	rotation       float32
+	rotationX      float32
+	rotationY      float32
+	rotationZ      float32
 	movMatrix      mgl32.Mat4
 	PositionMatrix js.Value
 	ViewMatrix     js.Value
@@ -230,12 +232,14 @@ func (r *Renderer) Render(this js.Value, args []js.Value) interface{} {
 	now := float32(args[0].Float())
 	tdiff := now - r.tmark
 	r.tmark = now
-	r.rotation = r.rotation + float32(tdiff)/500
+	r.rotationX = r.rotationX + r.speedX*float32(tdiff)/500
+	r.rotationY = r.rotationY + r.speedY*float32(tdiff)/500
+	r.rotationZ = r.rotationZ + r.speedZ*float32(tdiff)/500
 
 	// Do new model matrix calculations
-	r.movMatrix = mgl32.HomogRotate3DX(r.speedX * r.rotation)
-	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DY(r.speedY * r.rotation))
-	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DZ(r.speedZ * r.rotation))
+	r.movMatrix = mgl32.HomogRotate3DX(r.rotationX)
+	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DY(r.rotationY))
+	r.movMatrix = r.movMatrix.Mul4(mgl32.HomogRotate3DZ(r.rotationZ))
 
 	// Convert model matrix to a JS TypedArray
 	var modelMatrixBuffer *[16]float32
