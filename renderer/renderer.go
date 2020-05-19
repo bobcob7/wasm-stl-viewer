@@ -25,9 +25,9 @@ type InitialConfig struct {
 type Renderer struct {
 	glContext      js.Value
 	glTypes        gltypes.GLTypes
-	colors         js.TypedArray
-	vertices       js.TypedArray
-	indices        js.TypedArray
+	colors         js.Value
+	vertices       js.Value
+	indices        js.Value
 	colorBuffer    js.Value
 	vertexBuffer   js.Value
 	indexBuffer    js.Value
@@ -130,14 +130,14 @@ func (r *Renderer) createMatrixes() {
 	projMatrix := mgl32.Perspective(mgl32.DegToRad(45.0), ratio, 1, 100000.0)
 	var projMatrixBuffer *[16]float32
 	projMatrixBuffer = (*[16]float32)(unsafe.Pointer(&projMatrix))
-	typedProjMatrixBuffer := js.TypedArrayOf([]float32((*projMatrixBuffer)[:]))
+	typedProjMatrixBuffer := gltypes.SliceToTypedArray([]float32((*projMatrixBuffer)[:]))
 	r.glContext.Call("uniformMatrix4fv", r.PositionMatrix, false, typedProjMatrixBuffer)
 
 	// Generate and apply view matrix
 	viewMatrix := mgl32.LookAtV(mgl32.Vec3{3.0, 3.0, 3.0}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
 	var viewMatrixBuffer *[16]float32
 	viewMatrixBuffer = (*[16]float32)(unsafe.Pointer(&viewMatrix))
-	typedViewMatrixBuffer := js.TypedArrayOf([]float32((*viewMatrixBuffer)[:]))
+	typedViewMatrixBuffer := gltypes.SliceToTypedArray([]float32((*viewMatrixBuffer)[:]))
 	r.glContext.Call("uniformMatrix4fv", r.ViewMatrix, false, typedViewMatrixBuffer)
 }
 
@@ -168,7 +168,7 @@ func (r *Renderer) UpdateVertexShader(shaderCode string) {
 
 func (r *Renderer) updateShaderProgram() {
 	fmt.Println("Renderer.updateShaderProgram")
-	if r.fragShader == js.Undefined() || r.vertShader == js.Undefined() {
+	if r.fragShader.IsUndefined() || r.vertShader.IsUndefined() {
 		return
 	}
 	r.shaderProgram = r.glContext.Call("createProgram")
@@ -199,9 +199,9 @@ func (r *Renderer) attachShaderProgram() {
 
 func (r *Renderer) UpdateColorBuffer(buffer []float32) {
 	fmt.Println("Renderer.UpdateColorBuffer")
-	r.colors = js.TypedArrayOf(buffer)
+	r.colors = gltypes.SliceToTypedArray(buffer)
 	// Create color buffer
-	if r.colorBuffer == js.Undefined() {
+	if r.colorBuffer.IsUndefined() {
 		r.colorBuffer = r.glContext.Call("createBuffer")
 	}
 	r.glContext.Call("bindBuffer", r.glTypes.ArrayBuffer, r.colorBuffer)
@@ -210,9 +210,9 @@ func (r *Renderer) UpdateColorBuffer(buffer []float32) {
 
 func (r *Renderer) UpdateVerticesBuffer(buffer []float32) {
 	fmt.Println("Renderer.UpdateVerticesBuffer")
-	r.vertices = js.TypedArrayOf(buffer)
+	r.vertices = gltypes.SliceToTypedArray(buffer)
 	// Create vertex buffer
-	if r.vertexBuffer == js.Undefined() {
+	if r.vertexBuffer.IsUndefined() {
 		r.vertexBuffer = r.glContext.Call("createBuffer")
 	}
 	r.glContext.Call("bindBuffer", r.glTypes.ArrayBuffer, r.vertexBuffer)
@@ -221,9 +221,9 @@ func (r *Renderer) UpdateVerticesBuffer(buffer []float32) {
 
 func (r *Renderer) UpdateIndicesBuffer(buffer []uint32) {
 	fmt.Println("Renderer.UpdateIndicesBuffer")
-	r.indices = js.TypedArrayOf(buffer)
+	r.indices = gltypes.SliceToTypedArray(buffer)
 	// Create index buffer
-	if r.indexBuffer == js.Undefined() {
+	if r.indexBuffer.IsUndefined() {
 		r.indexBuffer = r.glContext.Call("createBuffer")
 	}
 	r.glContext.Call("bindBuffer", r.glTypes.ElementArrayBuffer, r.indexBuffer)
@@ -247,7 +247,7 @@ func (r *Renderer) Render(this js.Value, args []js.Value) interface{} {
 	// Convert model matrix to a JS TypedArray
 	var modelMatrixBuffer *[16]float32
 	modelMatrixBuffer = (*[16]float32)(unsafe.Pointer(&r.movMatrix))
-	typedModelMatrixBuffer := js.TypedArrayOf([]float32((*modelMatrixBuffer)[:]))
+	typedModelMatrixBuffer := gltypes.SliceToTypedArray([]float32((*modelMatrixBuffer)[:]))
 
 	// Apply the model matrix
 	r.glContext.Call("uniformMatrix4fv", r.ModelMatrix, false, typedModelMatrixBuffer)
@@ -268,6 +268,6 @@ func (r *Renderer) SetZoom(currentZoom float32) {
 	viewMatrix := mgl32.LookAtV(mgl32.Vec3{currentZoom, currentZoom, currentZoom}, mgl32.Vec3{0.0, 0.0, 0.0}, mgl32.Vec3{0.0, 1.0, 0.0})
 	var viewMatrixBuffer *[16]float32
 	viewMatrixBuffer = (*[16]float32)(unsafe.Pointer(&viewMatrix))
-	typedViewMatrixBuffer := js.TypedArrayOf([]float32((*viewMatrixBuffer)[:]))
+	typedViewMatrixBuffer := gltypes.SliceToTypedArray([]float32((*viewMatrixBuffer)[:]))
 	r.glContext.Call("uniformMatrix4fv", r.ViewMatrix, false, typedViewMatrixBuffer)
 }

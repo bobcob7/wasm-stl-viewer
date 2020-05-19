@@ -194,10 +194,10 @@ func main() {
 	upload.Call("addEventListener", "change", uploadCallback)
 
 	gl = canvasElement.Call("getContext", "webgl")
-	if gl == js.Undefined() {
+	if gl.IsUndefined() {
 		gl = canvasElement.Call("getContext", "experimental-webgl")
 	}
-	if gl == js.Undefined() {
+	if gl.IsUndefined() {
 		js.Global().Call("alert", "browser might not support webgl")
 		return
 	}
