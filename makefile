@@ -1,3 +1,5 @@
+GOROOT := $(shell go env GOROOT)
+
 all: wasm-stl-viewer
 
 wasm-stl-viewer: bundle.wasm main.go
