@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"runtime"
 )
 
 func main() {
@@ -12,9 +11,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not read index file: %s\n", err)
 	}
-
-	wasmExecLocation := runtime.GOROOT() + "/misc/wasm/wasm_exec.js"
-	wasmExecData, err := ioutil.ReadFile(wasmExecLocation)
+	wasmExecData, err := ioutil.ReadFile("wasm_exec.js")
 	if err != nil {
 		log.Fatalf("Could not read wasm_exec file: %s\n", err)
 	}
